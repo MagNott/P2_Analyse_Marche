@@ -4,17 +4,25 @@ from pathlib import Path
 import csv
 import re
 
-url = 'https://books.toscrape.com/catalogue/the-long-shadow-of-small-ghosts-murder-and-memory-in-an-american-city_848/index.html'
-# Requète pour vérifier qu'on récupère une réponse du site
-reponse = requests.get(url)
-# data = reponse.status_code
-# print(reponse.text)
+# Construction URL
+url_racine = 'https://books.toscrape.com'
+url_livre = '/catalogue/the-long-shadow-of-small-ghosts-murder-and-memory-in-an-american-city_848/index.html'
+url_complete = url_racine + url_livre
 
-# Requète pour récupéer un livre
-data_header = ['product_page_url', 'universal_product_code', 'title', 'Price (excl. tax)', 'Price (incl. tax)', 'number_available', 'product_description', 'category', 'review_rating', 'image_url'    ]
+# Requète pour récupérer un livre
+reponse = requests.get(url_complete)
+
+# Pour vérifier l'encodage de la page on print reponse.headers ou reponse.apparent_encoding
+reponse.encoding = 'utf-8'
+
+# Préparation header pour le csv
+data_header = ['product_page_url', 'universal_product_code', 'title', 'Price (excl. tax)', 'Price (incl. tax)', 'number_available', 'product_description', 'category', 'review_rating', 'image_url']
+
+# Traitement de la requete
 data = []
 page = BeautifulSoup(reponse.text, features="html.parser")
 
+# récupéation intermédiaires des données de la table dans la page
 table = page.table
 liste_info = []
 
@@ -22,7 +30,10 @@ for row in table.find_all("tr"):
     for element in row.find_all("td"):
        liste_info.append(element.text)
 
-data.append(url)
+# Contruction des data
+data.append(url_complete)
+
+# trouver le titre
 titre = page.h1
 data.append(titre.text)
 
@@ -36,7 +47,8 @@ data.append(liste_info[3])
 # trouver le nombre dispo
 disponible = liste_info[5]
 nombre_disponible = re.findall(r"\d+", disponible)
-data.append(nombre_disponible)
+nombre_str = nombre_disponible[0]
+data.append(int(nombre_str))
 
 # trouver la description
 h2 = page.find("h2")
@@ -57,20 +69,21 @@ nombre_etoiles = recherche_etoile["class"]
 etoiles = nombre_etoiles[1]
 data.append(etoiles)
 
-print(data)
-
-
+# Trouver l'url de l'image
+recherche_url_image = page.find("img", )
+url_relative_image = recherche_url_image['src']
+url_complete_image = url_racine + url_relative_image
+data.append(url_complete_image)
 
 
 # Création d'un csv pour stocker la réponse du site
-# chemin_relatif = Path("data.csv")
+chemin_relatif_csv = Path("data.csv")
 
-# if Path.exists(chemin_relatif):
-#     with open(chemin_relatif, "r") as fichier:
-#         csv_reader = csv.reader(fichier)
-# else:
-#     with open(chemin_relatif, "w") as fichier:
-#        csv_writer = csv.writer(fichier)
-#        csv_writer.writerow([data])  # Écrire une ligne
+with open(chemin_relatif_csv, "w", newline='', encoding="utf-8-sig") as fichier:
+    csv_writer = csv.writer(fichier, delimiter=",")
+    csv_writer.writerow(data_header)
+    csv_writer.writerow(data)  # Écrire une ligne
+
+
 
 
