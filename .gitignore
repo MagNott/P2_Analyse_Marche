@@ -1,6 +1,7 @@
 # ne pas suivre 
 images/
 data.csv
+fichiers_travail/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
