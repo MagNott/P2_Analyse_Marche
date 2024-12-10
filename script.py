@@ -127,7 +127,14 @@ def extraire_donnees_livre(page_livre):
     return livres_extraits
 
 
+def extraire_urls_livres(liste_livres_page) :
+    liste_urls_livres  = []
+    for livre in liste_livres_page:
+        url_relative_livre = livre['href']
+        if url_relative_livre not in liste_urls_livres :
+            liste_urls_livres.append(url_relative_livre)
 
+    return liste_urls_livres 
 
 
 # LOGIQUE PRINCIPALE
@@ -150,12 +157,7 @@ liste_livre = page.ol
 
 liste_livre_iteration = liste_livre.find_all("a")
 
-ulrs_livres = []
-for livre in liste_livre_iteration:
-    url_relative_livre = livre['href']
-    if url_relative_livre not in ulrs_livres:
-        ulrs_livres.append(url_relative_livre)
-
+ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
 
 
 url_intermediaire_livre = 'https://books.toscrape.com/catalogue/'
