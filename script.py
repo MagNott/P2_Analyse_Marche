@@ -14,7 +14,7 @@ URL_RACINE = 'https://books.toscrape.com'
 # url_livre = '/catalogue/the-long-shadow-of-small-ghosts-murder-and-memory-in-an-american-city_848/index.html'
 # url_complete_livre = URL_RACINE + url_livre
 
-url_categorie = '/catalogue/category/books/mystery_3/index.html'
+url_categorie = '/catalogue/category/books/fiction_10/index.html'
 url_complete_categorie = URL_RACINE + url_categorie
 
 # Requète pour récupérer un livre
@@ -193,7 +193,7 @@ while page.find("li", class_="next"):
         exit()
 
     lien_page_suivante = recherche_page_suivant.find('a')['href']
-    url_intermediaire_categorie = 'https://books.toscrape.com/catalogue/category/books/mystery_3/'
+    url_intermediaire_categorie = 'https://books.toscrape.com/catalogue/category/books/fiction_10/'
     url_page_suivante = urljoin(url_intermediaire_categorie, lien_page_suivante)
   
 
