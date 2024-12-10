@@ -42,7 +42,7 @@ data_complete = []
 
 # DEFNITIONS DES FONCTIONS
 
-def extraire_donnees_livre(page_livre):
+def extraire_donnees_livre(page_livre, url_page_livre ):
     livres_extraits = []
     data = []
 
@@ -62,7 +62,7 @@ def extraire_donnees_livre(page_livre):
         exit()
 
     # Contruction des data
-    data.append(url_complete_livre)
+    data.append(url_page_livre)
 
     # trouver le titre
     titre = page_livre.h1
@@ -137,6 +137,8 @@ def extraire_urls_livres(liste_livres_page) :
     return liste_urls_livres 
 
 
+
+
 # LOGIQUE PRINCIPALE
 
 # Requete pour récupérer une categorie
@@ -149,37 +151,86 @@ if reponse.status_code != 200:
 reponse.encoding = 'utf-8'
 
 
-# Traitement de la requete
-
+# Parse de la page avec beautiful soup
 page = BeautifulSoup(reponse.text, features="html.parser")
 
-liste_livre = page.ol
 
-liste_livre_iteration = liste_livre.find_all("a")
+# Aller sur les pages suivantes
+while page.find("li", class_="next"):
+    if not page.find("li", class_="next"):
+        print("Pas de page suivante trouvée. Fin de la boucle.")
+        break
 
-ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
+    url_intermediaire_livre = 'https://books.toscrape.com/catalogue/'
 
+    # Récupération des urls des livres
+    liste_livre = page.ol
+    liste_livre_iteration = liste_livre.find_all("a")
+    ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
 
-url_intermediaire_livre = 'https://books.toscrape.com/catalogue/'
-for url_livre in ulrs_livres:
-    url_livre_nettoyee = url_livre.lstrip("../")
-    url_complete_livre = urljoin(url_intermediaire_livre, url_livre_nettoyee)
-    reponse_livre = requests.get(url_complete_livre)
-    
-    if reponse.status_code != 200:
-        print(f"Erreur : La page {url_complete_livre} n'est pas accessible. Statut {reponse.status_code}")
+    for url_livre in ulrs_livres:
+        url_livre_nettoyee = url_livre.lstrip("../")
+        url_complete_livre = urljoin(url_intermediaire_livre, url_livre_nettoyee)
+        reponse_livre = requests.get(url_complete_livre)
+        
+        if reponse.status_code != 200:
+            print(f"Erreur : La page {url_complete_livre} n'est pas accessible. Statut {reponse.status_code}")
+            exit()
+        
+        # Pour vérifier l'encodage de la page on print reponse.headers ou reponse.apparent_encoding
+        reponse_livre.encoding = 'utf-8'
+
+        # Traitement de la requete de la page livre
+        page_livre_parse = BeautifulSoup(reponse_livre.text, features="html.parser")
+
+        resultat = extraire_donnees_livre(page_livre_parse, url_complete_livre)
+        data_complete.extend(resultat)
+   
+    urls_pages_suivante = []
+    recherche_page_suivant = page.find("li", class_="next") 
+    if not recherche_page_suivant:
+        print("Erreur : La balise <li> avec la classe next qui contient le lien de la page suivante n'a pas été trouvée")
         exit()
-    
-    # Pour vérifier l'encodage de la page on print reponse.headers ou reponse.apparent_encoding
-    reponse_livre.encoding = 'utf-8'
 
-    # Traitement de la requete de la page libre
-    page_livre_parse = BeautifulSoup(reponse_livre.text, features="html.parser")
+    lien_page_suivante = recherche_page_suivant.find('a')['href']
+    url_intermediaire_categorie = 'https://books.toscrape.com/catalogue/category/books/mystery_3/'
+    url_page_suivante = urljoin(url_intermediaire_categorie, lien_page_suivante)
+  
 
-    resultat = extraire_donnees_livre(page_livre_parse)
-    data_complete.extend(resultat)
-    
+    reponse_page = requests.get(url_page_suivante)
+    if reponse.status_code != 200:
+        print(f"Erreur : La page {url_page_suivante} n'est pas accessible. Statut {reponse.status_code}")
+        break
 
+     # Mettre à jour la variable `page` avec le contenu de la nouvelle page
+    page = BeautifulSoup(reponse_page.text, features="html.parser")
+
+      # Récupération des urls des livres
+    liste_livre = page.ol
+    liste_livre_iteration = liste_livre.find_all("a")
+    ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
+
+    url_intermediaire_livre = 'https://books.toscrape.com/catalogue/'
+    for url_livre in ulrs_livres:
+        url_livre_nettoyee = url_livre.lstrip("../")
+        url_complete_livre = urljoin(url_intermediaire_livre, url_livre_nettoyee)
+        reponse_livre = requests.get(url_complete_livre)
+        
+        if reponse.status_code != 200:
+            print(f"Erreur : La page {url_complete_livre} n'est pas accessible. Statut {reponse.status_code}")
+            exit()
+        
+        # Pour vérifier l'encodage de la page on print reponse.headers ou reponse.apparent_encoding
+        reponse_livre.encoding = 'utf-8'
+
+        # Traitement de la requete de la page livre
+        page_livre_parse = BeautifulSoup(reponse_livre.text, features="html.parser")
+
+        resultat = extraire_donnees_livre(page_livre_parse, url_complete_livre)
+        data_complete.extend(resultat)
+        
+        print(data_complete)
+        
 # Création d'un csv pour stocker la réponse du site
 chemin_relatif_csv = Path("data.csv")
 
