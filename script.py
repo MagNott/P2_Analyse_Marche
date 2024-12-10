@@ -5,14 +5,17 @@ import csv
 import re
 from urllib.parse import urljoin
 
+
+# VARIABLES ET CONSTANTES GLOBALES
+
 # Construction URL
-url_racine = 'https://books.toscrape.com'
+URL_RACINE = 'https://books.toscrape.com'
 
 # url_livre = '/catalogue/the-long-shadow-of-small-ghosts-murder-and-memory-in-an-american-city_848/index.html'
-# url_complete_livre = url_racine + url_livre
+# url_complete_livre = URL_RACINE + url_livre
 
-url_categorie = '/catalogue/category/books/politics_48/index.html'
-url_complete_categorie = url_racine + url_categorie
+url_categorie = '/catalogue/category/books/mystery_3/index.html'
+url_complete_categorie = URL_RACINE + url_categorie
 
 # Requète pour récupérer un livre
 # reponse = requests.get(url_complete_livre)
@@ -20,51 +23,28 @@ url_complete_categorie = url_racine + url_categorie
 #     print(f"Erreur : La page {url_complete_livre} n'est pas accessible. Statut {reponse.status_code}")
 #     exit()
 
-# Requete pour récupérer une categorie
-reponse = requests.get(url_complete_categorie)
-if reponse.status_code != 200:
-    print(f"Erreur : La page {url_complete_categorie} n'est pas accessible. Statut {reponse.status_code}")
-    exit()
-
-# Pour vérifier l'encodage de la page on print reponse.headers ou reponse.apparent_encoding
-reponse.encoding = 'utf-8'
-
 # Préparation header pour le csv
-data_header = ['product_page_url', 'universal_product_code', 'title', 'Price (excl. tax)', 'Price (incl. tax)', 'number_available', 'product_description', 'category', 'review_rating', 'image_url']
-
-# Traitement de la requete
+DATA_HEADER = [
+    'product_page_url',
+    'universal_product_code',
+    'title',
+    'Price (excl. tax)',
+    'Price (incl. tax)',
+    'number_available',
+    'product_description',
+    'category',
+    'review_rating',
+    'image_url'
+]
 
 data_complete = []
-page = BeautifulSoup(reponse.text, features="html.parser")
-
-liste_livre = page.ol
 
 
-liste_livre_iteration = liste_livre.find_all("a")
+# DEFNITIONS DES FONCTIONS
 
-ulrs_livres = []
-for livre in liste_livre_iteration:
-    url_relative_livre = livre['href']
-    if url_relative_livre not in ulrs_livres:
-        ulrs_livres.append(url_relative_livre)
-
-url_intermediaire_livre = 'https://books.toscrape.com/catalogue/'
-for url_livre in ulrs_livres:
-    url_livre_nettoyee = url_livre.lstrip("../")
-    url_complete_livre = urljoin(url_intermediaire_livre, url_livre_nettoyee)
-    reponse_livre = requests.get(url_complete_livre)
+def extraire_donnees_livre(page_livre):
+    livres_extraits = []
     data = []
-    if reponse.status_code != 200:
-        print(f"Erreur : La page {url_complete_livre} n'est pas accessible. Statut {reponse.status_code}")
-        exit()
-    
-    # Pour vérifier l'encodage de la page on print reponse.headers ou reponse.apparent_encoding
-    reponse_livre.encoding = 'utf-8'
-
-    # Traitement de la requete de la page libre
-    page_livre = BeautifulSoup(reponse_livre.text, features="html.parser")
-
- 
 
     # récupéation intermédiaires des données de la table dans la page
     table = page_livre.table
@@ -141,20 +121,73 @@ for url_livre in ulrs_livres:
         print("Erreur : La balise <img> qui contient l'url de l'image n'a pas été trouvée")
         exit()
     url_relative_image = recherche_url_image['src']
-    url_complete_image = url_racine + url_relative_image
+    url_complete_image = URL_RACINE + url_relative_image
     data.append(url_complete_image)
-    data_complete.append(data)
+    livres_extraits.append(data)
+    return livres_extraits
 
-    # Création d'un csv pour stocker la réponse du site
-    chemin_relatif_csv = Path("data.csv")
+
+
+
+
+# LOGIQUE PRINCIPALE
+
+# Requete pour récupérer une categorie
+reponse = requests.get(url_complete_categorie)
+if reponse.status_code != 200:
+    print(f"Erreur : La page {url_complete_categorie} n'est pas accessible. Statut {reponse.status_code}")
+    exit()
+
+# Pour vérifier l'encodage de la page on print reponse.headers ou reponse.apparent_encoding
+reponse.encoding = 'utf-8'
+
+
+# Traitement de la requete
+
+page = BeautifulSoup(reponse.text, features="html.parser")
+
+liste_livre = page.ol
+
+liste_livre_iteration = liste_livre.find_all("a")
+
+ulrs_livres = []
+for livre in liste_livre_iteration:
+    url_relative_livre = livre['href']
+    if url_relative_livre not in ulrs_livres:
+        ulrs_livres.append(url_relative_livre)
+
+
+
+url_intermediaire_livre = 'https://books.toscrape.com/catalogue/'
+for url_livre in ulrs_livres:
+    url_livre_nettoyee = url_livre.lstrip("../")
+    url_complete_livre = urljoin(url_intermediaire_livre, url_livre_nettoyee)
+    reponse_livre = requests.get(url_complete_livre)
+    
+    if reponse.status_code != 200:
+        print(f"Erreur : La page {url_complete_livre} n'est pas accessible. Statut {reponse.status_code}")
+        exit()
+    
+    # Pour vérifier l'encodage de la page on print reponse.headers ou reponse.apparent_encoding
+    reponse_livre.encoding = 'utf-8'
+
+    # Traitement de la requete de la page libre
+    page_livre_parse = BeautifulSoup(reponse_livre.text, features="html.parser")
+
+    resultat = extraire_donnees_livre(page_livre_parse)
+    data_complete.extend(resultat)
+    
+
+# Création d'un csv pour stocker la réponse du site
+chemin_relatif_csv = Path("data.csv")
 
 with open(chemin_relatif_csv, "w", newline='', encoding="utf-8-sig") as fichier:
-    csv_writer = csv.writer(fichier, delimiter=",")
-    csv_writer.writerow(data_header)
+    csv_writer = csv.writer(fichier, delimiter=";")
+    csv_writer.writerow(DATA_HEADER)
     for ligne in data_complete:
         csv_writer.writerow(ligne)  
 
 print("Les données ont été écrites dans le CSV.")
-print (data_complete)
+# print (data_complete)
 
 
