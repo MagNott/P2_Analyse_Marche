@@ -10,12 +10,13 @@ from urllib.parse import urljoin
 
 # Construction URL
 URL_RACINE = 'https://books.toscrape.com'
+URL_RACINE_CATEGORIE = 'https://books.toscrape.com/catalogue/category/books/'
 
 # url_livre = '/catalogue/the-long-shadow-of-small-ghosts-murder-and-memory-in-an-american-city_848/index.html'
 # url_complete_livre = URL_RACINE + url_livre
 
-url_categorie = '/catalogue/category/books/fiction_10/index.html'
-url_complete_categorie = URL_RACINE + url_categorie
+# url_categorie = '/catalogue/category/books/fiction_10/index.html'
+# url_complete_categorie = URL_RACINE + url_categorie
 
 url_intermediaire_livre = 'https://books.toscrape.com/catalogue/'
 
@@ -52,6 +53,8 @@ def extraire_donnees_livre(page_livre, url_page_livre ):
     table = page_livre.table
     if not table:
         print("Erreur : La balise <table> n'a pas été trouvée")
+        print (page_livre)
+        print(url_page_livre)
         exit()
 
     liste_info = []
@@ -160,14 +163,33 @@ def recuperation_donnees_livre (liste_urls_livres):
             donnees_livres.extend(resultat)
     return donnees_livres
 
+def extraire_urls_categorie(page_courante) :
+    urls_categorie = []
+    categories = page_courante.find("ul", class_="nav nav-list")
+    if not categories:
+        print("Erreur : La balise <ul> avec la classe nav nav-list qui contient le lien de la catégorie n'a pas été trouvée")
+        exit()
+    liste_categories =  categories.find_all('li')  
+    for categorie in liste_categories:
+        url_categorie = categorie.find('a')['href']
+        url_categorie_nettoyee = url_categorie.lstrip("../")
+        url_complete_categorie = urljoin(URL_RACINE, url_categorie_nettoyee)
+        urls_categorie.append(url_complete_categorie)
+
+    del urls_categorie[0]
+    return urls_categorie
+
+
 
 
 # LOGIQUE PRINCIPALE
 
+# Récupérer toutes les urls des catégories
+
 # Requete pour récupérer une categorie
-reponse = requests.get(url_complete_categorie)
+reponse = requests.get(URL_RACINE)
 if reponse.status_code != 200:
-    print(f"Erreur : La page {url_complete_categorie} n'est pas accessible. Statut {reponse.status_code}")
+    print(f"Erreur : La page {URL_RACINE} n'est pas accessible. Statut {reponse.status_code}")
     exit()
 
 # Pour vérifier l'encodage de la page on print reponse.headers ou reponse.apparent_encoding
@@ -176,58 +198,85 @@ reponse.encoding = 'utf-8'
 # Parse de la page avec beautiful soup
 page = BeautifulSoup(reponse.text, features="html.parser")
 
-# Logique multipage et récupérer les données de chaque livre dans chaque page
-while page.find("li", class_="next"):
-    if not page.find("li", class_="next"):
-        print("Pas de page suivante trouvée. Fin de la boucle.")
-        break
+urls_categories_extraites = extraire_urls_categorie(page)
+i = 0
 
-    # Récupération des urls des livres
-    liste_livre = page.ol
-    liste_livre_iteration = liste_livre.find_all("a")
-    ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
+for url_categorie_extraite in urls_categories_extraites:
 
-    # récupération des données des livre de la page initiale pour les stocker dans une variable
-    data_complete.extend(recuperation_donnees_livre(ulrs_livres))
-   
-    # Changement de page pour récuperer le reste des livres 
-    urls_pages_suivante = []
-    recherche_page_suivant = page.find("li", class_="next") 
-    if not recherche_page_suivant:
-        print("Erreur : La balise <li> avec la classe next qui contient le lien de la page suivante n'a pas été trouvée")
+    data_complete = []
+
+    reponse = requests.get(url_categorie_extraite)
+    if reponse.status_code != 200:
+        print(f"Erreur : La page {url_categorie_extraite} n'est pas accessible. Statut {reponse.status_code}")
         exit()
 
-    lien_page_suivante = recherche_page_suivant.find('a')['href']
-    url_page_suivante = urljoin(url_complete_categorie, lien_page_suivante)
+    # Pour vérifier l'encodage de la page on print reponse.headers ou reponse.apparent_encoding
+    reponse.encoding = 'utf-8'
 
-    # Requete de la page suivante
-    reponse_page = requests.get(url_page_suivante)
-    if reponse.status_code != 200:
-        print(f"Erreur : La page {url_page_suivante} n'est pas accessible. Statut {reponse.status_code}")
-        break
+    # Parse de la page avec beautiful soup
+    page = BeautifulSoup(reponse.text, features="html.parser")
 
-    # Mettre à jour la variable `page` avec le contenu de la nouvelle page
-    page = BeautifulSoup(reponse_page.text, features="html.parser")
+    nom_categorie = page.find('h1').text
+    print(f"Extraction de la catégorie {nom_categorie}")
 
-    # Récupération des urls des livres
-    liste_livre = page.ol
-    liste_livre_iteration = liste_livre.find_all("a")
-    ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
+    # Logique multipage et récupérer les données de chaque livre dans chaque page
+    while True:
+        # page.find("li", class_="next")
 
-    # récupération des données des livre de la page initiale pour les stocker dans une variable
-    data_complete.extend(recuperation_donnees_livre(ulrs_livres))
+        # Récupération des urls des livres
+        liste_livre = page.ol
+        liste_livre_iteration = liste_livre.find_all("a")
+        ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
+
+        # récupération des données des livre de la page initiale pour les stocker dans une variable
+        data_complete.extend(recuperation_donnees_livre(ulrs_livres))
+        
+        # Changement de page pour récuperer le reste des livres 
+        urls_pages_suivante = []
+        recherche_page_suivant = page.find("li", class_="next") 
+        if recherche_page_suivant:
+           
+            lien_page_suivante = recherche_page_suivant.find('a')['href']
+            url_categorie_sans_index = url_categorie_extraite.removesuffix("index.html")
+            url_page_suivante = urljoin(url_categorie_sans_index, lien_page_suivante)
+        
+
+            # Requete de la page suivante
+            reponse_page = requests.get(url_page_suivante)
+
+            if reponse_page.status_code != 200:
+                print(f"Erreur : La page {url_page_suivante} n'est pas accessible. Statut {reponse_page.status_code}")
+                break
+
+            # Mettre à jour la variable `page` avec le contenu de la nouvelle page
+            page = BeautifulSoup(reponse_page.text, features="html.parser")
+
+            # Récupération des urls des livres
+            liste_livre = page.ol
+            liste_livre_iteration = liste_livre.find_all("a")
+            ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
+
+            # récupération des données des livres de la page initiale pour les stocker dans une variable
+            data_complete.extend(recuperation_donnees_livre(ulrs_livres))
+
+        if not page.find("li", class_="next"):
+            print(f"Fin de l'extraction de la catégorie {nom_categorie}")
+            break
+
+    i += 1
+    print (f"{i} sur 51")
         
         
-# Création d'un csv pour stocker la réponse du site
-chemin_relatif_csv = Path("data.csv")
+    # Création d'un csv pour stocker la réponse du site
+    chemin_relatif_csv = Path(f"{nom_categorie}.csv")
 
-with open(chemin_relatif_csv, "w", newline='', encoding="utf-8-sig") as fichier:
-    csv_writer = csv.writer(fichier, delimiter=";")
-    csv_writer.writerow(DATA_HEADER)
-    for ligne in data_complete:
-        csv_writer.writerow(ligne)  
+    with open(chemin_relatif_csv, "w", newline='', encoding="utf-8-sig") as fichier:
+        csv_writer = csv.writer(fichier, delimiter=";")
+        csv_writer.writerow(DATA_HEADER)
+        for ligne in data_complete:
+            csv_writer.writerow(ligne)  
 
-print("Les données ont été écrites dans le CSV.")
+    print(f"Les données de la catégorie {nom_categorie} ont été écrites dans le CSV.")
 
-
+ 
 
