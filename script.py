@@ -46,7 +46,7 @@ data_complete = []
 
 # DEFNITIONS DES FONCTIONS
 
-def extraire_donnees_livre(page_livre, url_page_livre ):
+def extraire_donnees_livre(page_livre, url_page_livre, dossier_categorie, titre_categorie ):
     livres_extraits = []
     data = []
 
@@ -75,7 +75,8 @@ def extraire_donnees_livre(page_livre, url_page_livre ):
     if not titre:
         print("Erreur : La balise <h1> qui conient le titre du livre n'a pas été trouvée")
         exit()
-    data.append(titre.text)
+    titre_nettoye = re.sub(r"[^\w\s-]", "", titre.text).replace(" ", "_")
+    data.append(titre_nettoye)
 
     # trouver le code
     data.append(liste_info[0])
@@ -127,7 +128,18 @@ def extraire_donnees_livre(page_livre, url_page_livre ):
         print("Erreur : La balise <img> qui contient l'url de l'image n'a pas été trouvée")
         exit()
     url_relative_image = recherche_url_image['src']
-    url_complete_image = URL_RACINE + url_relative_image
+    url_complete_image = urljoin(URL_RACINE, url_relative_image)
+
+    # Télécharger l'image
+    telechargement_image = requests.get(url_complete_image)
+    if reponse.status_code != 200:
+        print(f"Erreur : L'image {url_complete_image} n'est pas accessible. Statut {telechargement_image.status_code}")
+        exit()
+    image = telechargement_image.content
+    chemin_image = os.path.join(dossier_categorie, f"{titre_categorie}-{titre_nettoye}.jpg")
+    with open(chemin_image, 'wb') as f:
+        f.write(image)
+
     data.append(url_complete_image)
     livres_extraits.append(data)
     return livres_extraits
@@ -143,7 +155,7 @@ def extraire_urls_livres(liste_livres_page) :
     return liste_urls_livres 
 
 
-def recuperation_donnees_livre (liste_urls_livres):
+def recuperation_donnees_livre (liste_urls_livres, dossier_categorie, titre_categorie):
     donnees_livres = []
     for url_livre in liste_urls_livres:
             url_livre_nettoyee = url_livre.lstrip("../")
@@ -160,7 +172,7 @@ def recuperation_donnees_livre (liste_urls_livres):
             # Traitement de la requete de la page livre
             page_livre_parse = BeautifulSoup(reponse_livre.text, features="html.parser")
 
-            resultat = extraire_donnees_livre(page_livre_parse, url_complete_livre)
+            resultat = extraire_donnees_livre(page_livre_parse, url_complete_livre, dossier_categorie, titre_categorie)
             donnees_livres.extend(resultat)
     return donnees_livres
 
@@ -240,7 +252,7 @@ for url_categorie_extraite in urls_categories_extraites:
         ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
 
         # récupération des données des livre de la page initiale pour les stocker dans une variable
-        data_complete.extend(recuperation_donnees_livre(ulrs_livres))
+        data_complete.extend(recuperation_donnees_livre(ulrs_livres, chemin_categorie, nom_categorie))
         
         # Changement de page pour récuperer le reste des livres 
         urls_pages_suivante = []
@@ -268,7 +280,7 @@ for url_categorie_extraite in urls_categories_extraites:
             ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
 
             # récupération des données des livres de la page initiale pour les stocker dans une variable
-            data_complete.extend(recuperation_donnees_livre(ulrs_livres))
+            data_complete.extend(recuperation_donnees_livre(ulrs_livres, chemin_categorie, nom_categorie))
 
         if not page.find("li", class_="next"):
             print(f"Fin de l'extraction de la catégorie {nom_categorie}")
