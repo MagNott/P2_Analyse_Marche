@@ -4,6 +4,7 @@ from pathlib import Path
 import csv
 import re
 from urllib.parse import urljoin
+import os
 
 
 # VARIABLES ET CONSTANTES GLOBALES
@@ -184,8 +185,6 @@ def extraire_urls_categorie(page_courante) :
 
 # LOGIQUE PRINCIPALE
 
-# Récupérer toutes les urls des catégories
-
 # Requete pour récupérer une categorie
 reponse = requests.get(URL_RACINE)
 if reponse.status_code != 200:
@@ -200,6 +199,13 @@ page = BeautifulSoup(reponse.text, features="html.parser")
 
 urls_categories_extraites = extraire_urls_categorie(page)
 i = 0
+
+# Répertoire où le script est exécuté
+dossier_courant = os.getcwd()
+chemin_booktoscrape = os.path.join(dossier_courant, "booktoscrape")
+os.makedirs(chemin_booktoscrape, exist_ok=True)
+
+print("Le dossier Booktoscrape est créé")
 
 for url_categorie_extraite in urls_categories_extraites:
 
@@ -216,8 +222,13 @@ for url_categorie_extraite in urls_categories_extraites:
     # Parse de la page avec beautiful soup
     page = BeautifulSoup(reponse.text, features="html.parser")
 
-    nom_categorie = page.find('h1').text
-    print(f"Extraction de la catégorie {nom_categorie}")
+    nom_categorie = page.find('h1').text.strip().replace(" ", "-")
+
+    print(f"Extraction de la catégorie {nom_categorie}...")
+
+    chemin_categorie = os.path.join(chemin_booktoscrape, nom_categorie)
+    os.makedirs(chemin_categorie, exist_ok=True)
+    print(f"Le dossier de la catégorie {nom_categorie} est créé dans le dossier Booktoscrape")
 
     # Logique multipage et récupérer les données de chaque livre dans chaque page
     while True:
@@ -264,11 +275,12 @@ for url_categorie_extraite in urls_categories_extraites:
             break
 
     i += 1
-    print (f"{i} sur 51")
+    print (f"{i} sur 50")
         
         
     # Création d'un csv pour stocker la réponse du site
-    chemin_relatif_csv = Path(f"{nom_categorie}.csv")
+   
+    chemin_relatif_csv = Path(f"{chemin_categorie}/{nom_categorie}.csv")
 
     with open(chemin_relatif_csv, "w", newline='', encoding="utf-8-sig") as fichier:
         csv_writer = csv.writer(fichier, delimiter=";")
@@ -276,7 +288,7 @@ for url_categorie_extraite in urls_categories_extraites:
         for ligne in data_complete:
             csv_writer.writerow(ligne)  
 
-    print(f"Les données de la catégorie {nom_categorie} ont été écrites dans le CSV.")
+    print(f"Les données de la catégorie {nom_categorie} ont été écrites dans le CSV enregistré dans le dossier : booktoscrape/{nom_categorie} .")
 
  
 

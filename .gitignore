@@ -2,6 +2,7 @@
 images/
 data.csv
 fichiers_travail/
+booktoscrape/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
