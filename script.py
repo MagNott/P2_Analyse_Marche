@@ -4,6 +4,7 @@ from pathlib import Path
 import csv
 import re
 from urllib.parse import urljoin
+import os
 
 
 # VARIABLES ET CONSTANTES GLOBALES
@@ -45,7 +46,7 @@ data_complete = []
 
 # DEFNITIONS DES FONCTIONS
 
-def extraire_donnees_livre(page_livre, url_page_livre ):
+def extraire_donnees_livre(page_livre, url_page_livre, dossier_categorie, titre_categorie ):
     livres_extraits = []
     data = []
 
@@ -74,7 +75,8 @@ def extraire_donnees_livre(page_livre, url_page_livre ):
     if not titre:
         print("Erreur : La balise <h1> qui conient le titre du livre n'a pas été trouvée")
         exit()
-    data.append(titre.text)
+    titre_nettoye = re.sub(r"[^\w\s-]", "", titre.text).replace(" ", "_")
+    data.append(titre_nettoye)
 
     # trouver le code
     data.append(liste_info[0])
@@ -126,7 +128,18 @@ def extraire_donnees_livre(page_livre, url_page_livre ):
         print("Erreur : La balise <img> qui contient l'url de l'image n'a pas été trouvée")
         exit()
     url_relative_image = recherche_url_image['src']
-    url_complete_image = URL_RACINE + url_relative_image
+    url_complete_image = urljoin(URL_RACINE, url_relative_image)
+
+    # Télécharger l'image
+    telechargement_image = requests.get(url_complete_image)
+    if reponse.status_code != 200:
+        print(f"Erreur : L'image {url_complete_image} n'est pas accessible. Statut {telechargement_image.status_code}")
+        exit()
+    image = telechargement_image.content
+    chemin_image = os.path.join(dossier_categorie, f"{titre_categorie}-{titre_nettoye}.jpg")
+    with open(chemin_image, 'wb') as f:
+        f.write(image)
+
     data.append(url_complete_image)
     livres_extraits.append(data)
     return livres_extraits
@@ -142,7 +155,7 @@ def extraire_urls_livres(liste_livres_page) :
     return liste_urls_livres 
 
 
-def recuperation_donnees_livre (liste_urls_livres):
+def recuperation_donnees_livre (liste_urls_livres, dossier_categorie, titre_categorie):
     donnees_livres = []
     for url_livre in liste_urls_livres:
             url_livre_nettoyee = url_livre.lstrip("../")
@@ -159,7 +172,7 @@ def recuperation_donnees_livre (liste_urls_livres):
             # Traitement de la requete de la page livre
             page_livre_parse = BeautifulSoup(reponse_livre.text, features="html.parser")
 
-            resultat = extraire_donnees_livre(page_livre_parse, url_complete_livre)
+            resultat = extraire_donnees_livre(page_livre_parse, url_complete_livre, dossier_categorie, titre_categorie)
             donnees_livres.extend(resultat)
     return donnees_livres
 
@@ -184,8 +197,6 @@ def extraire_urls_categorie(page_courante) :
 
 # LOGIQUE PRINCIPALE
 
-# Récupérer toutes les urls des catégories
-
 # Requete pour récupérer une categorie
 reponse = requests.get(URL_RACINE)
 if reponse.status_code != 200:
@@ -200,6 +211,13 @@ page = BeautifulSoup(reponse.text, features="html.parser")
 
 urls_categories_extraites = extraire_urls_categorie(page)
 i = 0
+
+# Répertoire où le script est exécuté
+dossier_courant = os.getcwd()
+chemin_booktoscrape = os.path.join(dossier_courant, "booktoscrape")
+os.makedirs(chemin_booktoscrape, exist_ok=True)
+
+print("Le dossier Booktoscrape est créé")
 
 for url_categorie_extraite in urls_categories_extraites:
 
@@ -216,8 +234,13 @@ for url_categorie_extraite in urls_categories_extraites:
     # Parse de la page avec beautiful soup
     page = BeautifulSoup(reponse.text, features="html.parser")
 
-    nom_categorie = page.find('h1').text
-    print(f"Extraction de la catégorie {nom_categorie}")
+    nom_categorie = page.find('h1').text.strip().replace(" ", "-")
+
+    print(f"Extraction de la catégorie {nom_categorie}...")
+
+    chemin_categorie = os.path.join(chemin_booktoscrape, nom_categorie)
+    os.makedirs(chemin_categorie, exist_ok=True)
+    print(f"Le dossier de la catégorie {nom_categorie} est créé dans le dossier Booktoscrape")
 
     # Logique multipage et récupérer les données de chaque livre dans chaque page
     while True:
@@ -229,7 +252,7 @@ for url_categorie_extraite in urls_categories_extraites:
         ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
 
         # récupération des données des livre de la page initiale pour les stocker dans une variable
-        data_complete.extend(recuperation_donnees_livre(ulrs_livres))
+        data_complete.extend(recuperation_donnees_livre(ulrs_livres, chemin_categorie, nom_categorie))
         
         # Changement de page pour récuperer le reste des livres 
         urls_pages_suivante = []
@@ -257,18 +280,19 @@ for url_categorie_extraite in urls_categories_extraites:
             ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
 
             # récupération des données des livres de la page initiale pour les stocker dans une variable
-            data_complete.extend(recuperation_donnees_livre(ulrs_livres))
+            data_complete.extend(recuperation_donnees_livre(ulrs_livres, chemin_categorie, nom_categorie))
 
         if not page.find("li", class_="next"):
             print(f"Fin de l'extraction de la catégorie {nom_categorie}")
             break
 
     i += 1
-    print (f"{i} sur 51")
+    print (f"{i} sur 50")
         
         
     # Création d'un csv pour stocker la réponse du site
-    chemin_relatif_csv = Path(f"{nom_categorie}.csv")
+   
+    chemin_relatif_csv = Path(f"{chemin_categorie}/{nom_categorie}.csv")
 
     with open(chemin_relatif_csv, "w", newline='', encoding="utf-8-sig") as fichier:
         csv_writer = csv.writer(fichier, delimiter=";")
@@ -276,7 +300,7 @@ for url_categorie_extraite in urls_categories_extraites:
         for ligne in data_complete:
             csv_writer.writerow(ligne)  
 
-    print(f"Les données de la catégorie {nom_categorie} ont été écrites dans le CSV.")
+    print(f"Les données de la catégorie {nom_categorie} ont été écrites dans le CSV enregistré dans le dossier : booktoscrape/{nom_categorie} .")
 
  
 
