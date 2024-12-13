@@ -177,6 +177,11 @@ def recuperation_donnees_livre (liste_urls_livres, dossier_categorie, titre_cate
     return donnees_livres
 
 def extraire_urls_categorie(page_courante) :
+    """
+    doctring
+
+    page_courante -- c'est la pc
+    """
     urls_categorie = []
     categories = page_courante.find("ul", class_="nav nav-list")
     if not categories:
