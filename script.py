@@ -12,20 +12,7 @@ import os
 # Construction URL
 URL_RACINE = 'https://books.toscrape.com'
 URL_RACINE_CATEGORIE = 'https://books.toscrape.com/catalogue/category/books/'
-
-# url_livre = '/catalogue/the-long-shadow-of-small-ghosts-murder-and-memory-in-an-american-city_848/index.html'
-# url_complete_livre = URL_RACINE + url_livre
-
-# url_categorie = '/catalogue/category/books/fiction_10/index.html'
-# url_complete_categorie = URL_RACINE + url_categorie
-
-url_intermediaire_livre = 'https://books.toscrape.com/catalogue/'
-
-# Requète pour récupérer un livre
-# reponse = requests.get(url_complete_livre)
-# if reponse.status_code != 200:
-#     print(f"Erreur : La page {url_complete_livre} n'est pas accessible. Statut {reponse.status_code}")
-#     exit()
+URL_INTERMEDIAIRE_LIVRE = 'https://books.toscrape.com/catalogue/'
 
 # Préparation header pour le csv
 DATA_HEADER = [
@@ -41,16 +28,27 @@ DATA_HEADER = [
     'image_url'
 ]
 
+# Variable pour collecter les données des livres
 data_complete = []
 
 
 # DEFNITIONS DES FONCTIONS
 
 def extraire_donnees_livre(page_livre, url_page_livre, dossier_categorie, titre_categorie ):
+    """
+    Fonction permettant de récupérer les éléments d'un livre
+
+    page_livre -- Contenu HTMl de la page du livre
+    url_page_livre -- URL de la page du livre
+    dossier_categorie -- Chemin pour enregistrer l'image
+    titre_categorie -- Nom de la catégorie du livre
+    """
+    
+    # Définitions des variables de la fonction
     livres_extraits = []
     data = []
 
-    # récupéation intermédiaires des données de la table dans la page
+    # Préparation des données intermédiaires du tableau dans la page du livre
     table = page_livre.table
     if not table:
         print("Erreur : La balise <table> n'a pas été trouvée")
@@ -67,10 +65,11 @@ def extraire_donnees_livre(page_livre, url_page_livre, dossier_categorie, titre_
         print("Erreur : Les informations extraites de la table sont insuffisantes")
         exit()
 
-    # Contruction des data
+
+    # Contruction des data du livres
     data.append(url_page_livre)
 
-    # trouver le titre
+    # Trouver le titre
     titre = page_livre.h1
     if not titre:
         print("Erreur : La balise <h1> qui conient le titre du livre n'a pas été trouvée")
@@ -78,20 +77,20 @@ def extraire_donnees_livre(page_livre, url_page_livre, dossier_categorie, titre_
     titre_nettoye = re.sub(r"[^\w\s-]", "", titre.text).replace(" ", "_")
     data.append(titre_nettoye)
 
-    # trouver le code
+    # Trouver le code
     data.append(liste_info[0])
 
-    # trouver les prix hors taxe et ttc
+    # Trouver les prix hors taxe et ttc
     data.append(liste_info[2])
     data.append(liste_info[3])
 
-    # trouver le nombre dispo
+    # Trouver le nombre dispo
     disponible = liste_info[5]
     nombre_disponible = re.findall(r"\d+", disponible)
     nombre_str = nombre_disponible[0]
     data.append(int(nombre_str))
 
-    # trouver la description
+    # Trouver la description
     h2 = page_livre.find("h2")
     if not h2:
         print("Erreur : La balise <h2> qui contient la description n'a pas été trouvée")
@@ -103,7 +102,7 @@ def extraire_donnees_livre(page_livre, url_page_livre, dossier_categorie, titre_
     description_text = description.text
     data.append(description_text)
 
-    # trouver la categorie
+    # Trouver la categorie
     menu_categorie = page_livre.ul
     if not menu_categorie:
         print("Erreur : La balise <ul> qui contient la categorie n'a pas été trouvée")
@@ -113,7 +112,7 @@ def extraire_donnees_livre(page_livre, url_page_livre, dossier_categorie, titre_
     categorie = categorie_a_extraire.find("a")
     data.append(categorie.text)
 
-    #trouver la note
+    # Trouver la note
     recherche_etoile = page_livre.find("p", class_="star-rating") 
     if not recherche_etoile:
         print("Erreur : La balise <p> avec la classe star-rating qui contient la note n'a pas été trouvée")
@@ -144,8 +143,13 @@ def extraire_donnees_livre(page_livre, url_page_livre, dossier_categorie, titre_
     livres_extraits.append(data)
     return livres_extraits
 
-
 def extraire_urls_livres(liste_livres_page) :
+    """
+    Fonction permettant de récupérer les URLS relatives des livres d'une page
+
+    liste_livres_page -- La liste des livres contenus dans une page
+    """
+
     liste_urls_livres  = []
     for livre in liste_livres_page:
         url_relative_livre = livre['href']
@@ -154,12 +158,19 @@ def extraire_urls_livres(liste_livres_page) :
 
     return liste_urls_livres 
 
-
 def recuperation_donnees_livre (liste_urls_livres, dossier_categorie, titre_categorie):
+    """
+    Fonction permettant préparer la page de chaque livre pour être utilisée pour l'extraction de données
+
+    liste_urls_livres -- La liste des URLS de livres contenus dans une page
+    dossier_categorie -- Chemin pour enregistrer l'image
+    titre_categorie -- Nom de la catégorie du livre
+    """
+
     donnees_livres = []
     for url_livre in liste_urls_livres:
             url_livre_nettoyee = url_livre.lstrip("../")
-            url_complete_livre = urljoin(url_intermediaire_livre, url_livre_nettoyee)
+            url_complete_livre = urljoin(URL_INTERMEDIAIRE_LIVRE, url_livre_nettoyee)
             reponse_livre = requests.get(url_complete_livre)
             
             if reponse.status_code != 200:
@@ -178,10 +189,11 @@ def recuperation_donnees_livre (liste_urls_livres, dossier_categorie, titre_cate
 
 def extraire_urls_categorie(page_courante) :
     """
-    doctring
+    Fonction permettant de récupérer les URLS complètes de chaque catégorie
 
-    page_courante -- c'est la pc
+    page_courante -- Contenu HTMl de la page d'accueil
     """
+
     urls_categorie = []
     categories = page_courante.find("ul", class_="nav nav-list")
     if not categories:
@@ -196,8 +208,6 @@ def extraire_urls_categorie(page_courante) :
 
     del urls_categorie[0]
     return urls_categorie
-
-
 
 
 # LOGIQUE PRINCIPALE
@@ -215,15 +225,18 @@ reponse.encoding = 'utf-8'
 page = BeautifulSoup(reponse.text, features="html.parser")
 
 urls_categories_extraites = extraire_urls_categorie(page)
+
+# Compteur pour compter les catégories extraites
 i = 0
 
-# Répertoire où le script est exécuté
+# Répertoire où le script est exécuté pour créer le dossier booktoscrape qui contiendra tous les éléments issus du scrape
 dossier_courant = os.getcwd()
 chemin_booktoscrape = os.path.join(dossier_courant, "booktoscrape")
 os.makedirs(chemin_booktoscrape, exist_ok=True)
 
 print("Le dossier Booktoscrape est créé")
 
+# Boucle permettant de passer sur chaque catégorie pour en extraires les livres
 for url_categorie_extraite in urls_categories_extraites:
 
     data_complete = []
@@ -262,8 +275,8 @@ for url_categorie_extraite in urls_categories_extraites:
         # Changement de page pour récuperer le reste des livres 
         urls_pages_suivante = []
         recherche_page_suivant = page.find("li", class_="next") 
+
         if recherche_page_suivant:
-           
             lien_page_suivante = recherche_page_suivant.find('a')['href']
             url_categorie_sans_index = url_categorie_extraite.removesuffix("index.html")
             url_page_suivante = urljoin(url_categorie_sans_index, lien_page_suivante)
@@ -296,7 +309,6 @@ for url_categorie_extraite in urls_categories_extraites:
         
         
     # Création d'un csv pour stocker la réponse du site
-   
     chemin_relatif_csv = Path(f"{chemin_categorie}/{nom_categorie}.csv")
 
     with open(chemin_relatif_csv, "w", newline='', encoding="utf-8-sig") as fichier:
