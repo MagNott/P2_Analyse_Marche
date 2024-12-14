@@ -119,7 +119,8 @@ def extraire_donnees_livre(page_livre, url_page_livre, dossier_categorie, titre_
         exit()
     nombre_etoiles = recherche_etoile["class"]
     etoiles = nombre_etoiles[1]
-    data.append(etoiles)
+    etoile_traduite = traduction_notes(etoiles)
+    data.append(etoile_traduite)
 
     # Trouver l'url de l'image
     recherche_url_image = page_livre.find("img", )
@@ -158,7 +159,7 @@ def extraire_urls_livres(liste_livres_page) :
 
     return liste_urls_livres 
 
-def recuperation_donnees_livre (liste_urls_livres, dossier_categorie, titre_categorie):
+def recuperation_donnees_livres (liste_urls_livres, dossier_categorie, titre_categorie):
     """
     Fonction permettant préparer la page de chaque livre pour être utilisée pour l'extraction de données
 
@@ -209,6 +210,27 @@ def extraire_urls_categorie(page_courante) :
     del urls_categorie[0]
     return urls_categorie
 
+def traduction_notes(p_etoile) :
+    """
+    Fonction permettant de traduire la note en chiffre
+
+    p_etoile -- note récupérée sur la page du livre 
+    """
+
+    match p_etoile:
+        case "One":
+            p_etoile = 1
+        case "Two":
+            p_etoile = 2
+        case "Three":
+            p_etoile = 3
+        case "Four":
+            p_etoile = 4
+        case "Five":
+            p_etoile = 5
+        case _:
+            p_etoile = 0
+    return p_etoile
 
 # LOGIQUE PRINCIPALE
 
@@ -270,7 +292,7 @@ for url_categorie_extraite in urls_categories_extraites:
         ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
 
         # récupération des données des livre de la page initiale pour les stocker dans une variable
-        data_complete.extend(recuperation_donnees_livre(ulrs_livres, chemin_categorie, nom_categorie))
+        data_complete.extend(recuperation_donnees_livres(ulrs_livres, chemin_categorie, nom_categorie))
         
         # Changement de page pour récuperer le reste des livres 
         urls_pages_suivante = []
@@ -298,7 +320,7 @@ for url_categorie_extraite in urls_categories_extraites:
             ulrs_livres = extraire_urls_livres(liste_livre_iteration) 
 
             # récupération des données des livres de la page initiale pour les stocker dans une variable
-            data_complete.extend(recuperation_donnees_livre(ulrs_livres, chemin_categorie, nom_categorie))
+            data_complete.extend(recuperation_donnees_livres(ulrs_livres, chemin_categorie, nom_categorie))
 
         if not page.find("li", class_="next"):
             print(f"Fin de l'extraction de la catégorie {nom_categorie}")
