@@ -28,9 +28,6 @@ DATA_HEADER = [
     'image_url'
 ]
 
-# Variable pour collecter les données des livres
-data_complete = []
-
 
 # DEFNITIONS DES FONCTIONS
 
@@ -225,6 +222,7 @@ def recuperer_page (p_url) :
 
 # LOGIQUE PRINCIPALE
 
+# Récupération de la page d'accueil pour chercher les catégories
 page_accueil = recuperer_page(URL_RACINE)
 urls_categories_extraites = extraire_urls_categorie(page_accueil)
 
@@ -235,13 +233,12 @@ i = 0
 dossier_courant = os.getcwd()
 chemin_booktoscrape = os.path.join(dossier_courant, "booktoscrape")
 os.makedirs(chemin_booktoscrape, exist_ok=True)
-
 print("Le dossier Booktoscrape est créé")
 
 # Boucle permettant de passer sur chaque catégorie pour en extraires les livres
 for url_categorie_extraite in urls_categories_extraites:
 
-    # Réinitialisation de la variable contenant les données
+    # Initialisation de la variable contenant les données des livres
     data_complete = []
 
     page_categorie = recuperer_page(url_categorie_extraite)
@@ -254,14 +251,12 @@ for url_categorie_extraite in urls_categories_extraites:
 
     # Logique multipage et récupérer les données de chaque livre dans chaque page
     while True:
-        # page.find("li", class_="next")
-
-        # Récupération des urls des livres
+       
+        # Récupération des urls des livres d'une page
         ulrs_livres = extraire_urls_livres(page_categorie) 
 
-        # récupération des données des livre de la page initiale pour les stocker dans une variable
+        # récupération des données des livres de la page initiale pour les stocker dans une variable
         for url_livre in ulrs_livres:
-            # Traitement de la requete de la page livre
             page_livre_parse = recuperer_page(url_livre)
 
             resultat_page = extraire_donnees_livre(page_livre_parse, url_livre, chemin_categorie, nom_categorie)
@@ -269,10 +264,10 @@ for url_categorie_extraite in urls_categories_extraites:
         
         # Changement de page pour récuperer le reste des livres 
         urls_pages_suivante = []
-        recherche_page_suivant = page_categorie.find("li", class_="next") 
+        recherche_page_suivante = page_categorie.find("li", class_="next") 
 
-        if recherche_page_suivant:
-            lien_page_suivante = recherche_page_suivant.find('a')['href']
+        if recherche_page_suivante:
+            lien_page_suivante = recherche_page_suivante.find('a')['href']
             url_categorie_sans_index = url_categorie_extraite.removesuffix("index.html")
             url_page_suivante = urljoin(url_categorie_sans_index, lien_page_suivante)
                   
