@@ -25,7 +25,7 @@ DATA_HEADER = [
     'product_description',
     'category',
     'review_rating',
-    'image_url'
+    'nom_image'
 ]
 
 
@@ -132,10 +132,11 @@ def extraire_donnees_livre(page_livre, url_page_livre, dossier_categorie, titre_
         exit()
     image = telechargement_image.content
     chemin_image = os.path.join(dossier_categorie, f"{titre_categorie}-{titre_nettoye}.jpg")
+    nom_image = f"{titre_categorie}-{titre_nettoye}.jpg"
     with open(chemin_image, 'wb') as f:
         f.write(image)
 
-    data.append(url_complete_image)
+    data.append(nom_image)
     livres_extraits.append(data)
     return livres_extraits
 
